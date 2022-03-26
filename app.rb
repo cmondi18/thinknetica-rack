@@ -1,56 +1,46 @@
 class TimeApp
-  @@status = 404
-  @@headers = { 'Content-Type' => 'text/plain' }
-  @@body = ["Not Found"]
-
-  @@permit_formats = %w[year month day hour minute second]
+  PERMIT_FORMATS = %w[year month day hour minute second]
 
   def call(env)
     req = Rack::Request.new(env)
-    @@has_unknown = false
-
-    if req.path == '/time'
-      if req.params.key?('format')
-        formats = req.params['format'].split(',')
-        check_unknown(formats)
-        set_format(formats) unless @@has_unknown
-      end
-    else
-      @@status = 404
-      @@headers = { 'Content-Type' => 'text/plain' }
-      @@body = ["Not Found"]
-    end
-    [@@status, @@headers, @@body]
+    create_response(req)
   end
 
   private
 
-  def set_format(formats)
-    time = []
-    formats.each do |format|
-      if format == 'minute'
-        time.append(Time.now.send('min').to_s)
-      elsif format == 'second'
-        time.append(Time.now.send('sec').to_s)
-      else
-        time.append(Time.now.send(format).to_s)
-      end
-      @@status = 200
-      @@body = ["#{time.join('-')}"]
-    end
-  end
+  def create_response(request)
+    return response(404, 'Not Found') if request.path != '/time' || !request.params.key?('format')
 
-  def check_unknown(formats)
+    formats = request.params['format'].split(',')
     unknown_formats = []
+    time = []
+
     formats.each do |format|
-      unless @@permit_formats.include?(format)
+      if PERMIT_FORMATS.include?(format)
+        if format == 'minute'
+          time.append(Time.now.send('min').to_s)
+        elsif format == 'second'
+          time.append(Time.now.send('sec').to_s)
+        else
+          time.append(Time.now.send(format).to_s)
+        end
+      else
         unknown_formats.append(format)
       end
     end
+
     if unknown_formats.any?
-      @@has_unknown = true
-      @@status = 400
-      @@body = ["Unknown time format #{unknown_formats}"]
+      response(400, "Unknown time format(s): #{unknown_formats}")
+    else
+      response(200, "#{time.join('-')}")
     end
+  end
+
+  def response(status, body)
+    res = Rack::Response.new
+    res.status = status
+    res.header['Content-Type'] = 'text/plain'
+    res.write(body)
+    res.finish
   end
 end
