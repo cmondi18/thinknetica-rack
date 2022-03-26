@@ -35,6 +35,7 @@ class TimeApp
       else
         time.append(Time.now.send(format).to_s)
       end
+      @@status = 200
       @@body = ["#{time.join('-')}"]
     end
   end
