@@ -1,6 +1,6 @@
-class TimeApp
-  PERMIT_FORMATS = %w[year month day hour minute second]
+require_relative 'time_formatter'
 
+class TimeApp
   def call(env)
     req = Rack::Request.new(env)
     create_response(req)
@@ -11,28 +11,13 @@ class TimeApp
   def create_response(request)
     return response(404, 'Not Found') if request.path != '/time' || !request.params.key?('format')
 
-    formats = request.params['format'].split(',')
-    unknown_formats = []
-    time = []
+    formatter = TimeFormatter.new(request.params)
+    formatter.check_permit
 
-    formats.each do |format|
-      if PERMIT_FORMATS.include?(format)
-        if format == 'minute'
-          time.append(Time.now.send('min').to_s)
-        elsif format == 'second'
-          time.append(Time.now.send('sec').to_s)
-        else
-          time.append(Time.now.send(format).to_s)
-        end
-      else
-        unknown_formats.append(format)
-      end
-    end
-
-    if unknown_formats.any?
-      response(400, "Unknown time format(s): #{unknown_formats}")
+    if formatter.permitted?
+      response(200, formatter.success_message)
     else
-      response(200, "#{time.join('-')}")
+      response(400, formatter.error_message)
     end
   end
 
